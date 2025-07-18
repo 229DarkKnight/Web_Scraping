@@ -1,0 +1,28 @@
+{
+  "name": "web_scraping",
+  "version": "1.0.0",
+  "description": "My first web scraping",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/229DarkKnight/Web_Scraping.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/229DarkKnight/Web_Scraping/issues"
+  },
+  "homepage": "https://github.com/229DarkKnight/Web_Scraping#readme",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "fs-extra": "^11.3.0",
+    "puppeteer": "^24.14.0",
+    "readline-sync": "^1.4.10",
+    "sharp": "^0.34.3",
+    "tesseract.js": "^6.0.1"
+  }
+}
