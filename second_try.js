@@ -1,76 +1,98 @@
-const puppeteer = require('puppeteer');
-const readline = require('readline');
-const fs = require('fs');
-const { execSync } = require('child_process');
+const puppeteer = require("puppeteer");
+const fs = require("fs");
+const readline = require("readline");
+const { spawnSync } = require("child_process");
 
 const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
 });
 
-function ask(query) {
-    return new Promise(resolve => rl.question(query, resolve));
-}
+// Ask for ID type first
+rl.question("Enter ID type (0 = Cédula Identidad, 2 = Jurídica, 7 = Extranjero): ", (idType) => {
+    // Validate input
+    if (!["0", "2", "7"].includes(idType)) {
+        console.error("❌ Invalid ID type. Must be 0, 2, or 7.");
+        rl.close();
+        return;
+    }
 
-const ID_TYPES = [
-    "CÉDULA DE IDENTIDAD EN REGISTRO CIVIL",
-    "CÉDULA JURÍDICA",
-    "EXTRANJERO CON IDENTIFICACIÓN CCSS"
-];
+    // Ask for ID number
+    rl.question("Enter the ID number (e.g. 304630092): ", async (idNumber) => {
+        const browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
 
-(async () => {
-    const idTypeInput = await ask(`Seleccione el tipo de identificación:\n0 - ${ID_TYPES[0]}\n1 - ${ID_TYPES[1]}\n2 - ${ID_TYPES[2]}\nDigite 0, 1 o 2 según el tipo de identificación: `);
-    const idTypeIndex = parseInt(idTypeInput);
-    const idNumber = await ask("Digite el número de identificación: ");
-    rl.close();
+        let success = false;
+        let attempts = 0;
 
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+        while (!success && attempts < 3) {
+            attempts++;
+            console.log(`\n🔁 Attempt ${attempts}...`);
 
-    await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do");
+            await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do", {
+                waitUntil: "networkidle2",
+            });
 
-    const maxAttempts = 3;
-    let success = false;
+            // Select ID type and enter number
+            await page.waitForSelector("#tipPatrono");
+            await page.select("#tipPatrono", idType);
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        console.log(`\n🔁 Intento ${attempt}...`);
+            await page.waitForSelector("#numPatrono");
+            await page.type("#numPatrono", idNumber);
 
-        const idSelect = await page.waitForSelector('select[name="tipoIdentificacion"]');
-        await idSelect.select(`${idTypeIndex}`);
+            // Capture CAPTCHA
+            const captchaElement = await page.$("#imgCaptchaN");
+            if (!captchaElement) {
+                console.error("❌ CAPTCHA image not found. Skipping attempt.");
+                continue;
+            }
 
-        await page.type('input[name="numeroIdentificacion"]', idNumber);
+            await captchaElement.screenshot({ path: "captcha.png" });
 
-        // Captura del CAPTCHA
-        const captchaImage = await page.waitForSelector('#captchaImg');
-        const captchaPath = 'captcha.png';
-        await captchaImage.screenshot({ path: captchaPath });
+            console.log("🧠 Processing CAPTCHA...");
+            const result = spawnSync("python3", ["ocr_solver.py", "captcha.png"], {
+                encoding: "utf-8",
+                maxBuffer: 10 * 1024 * 1024,
+            });
 
-        console.log("🧠 Procesando CAPTCHA...");
-        const captchaText = execSync(`python3 ocr_solver.py ${captchaPath}`).toString().trim();
-        console.log(`CAPTCHA leído como: ${captchaText}`);
+            if (result.error) {
+                console.error("⚠️ OCR process failed:", result.error);
+                process.exit(1);
+            }
 
-        await page.type('input[name="captchaConsulta"]', captchaText);
-        await Promise.all([
-            page.click('input[type="submit"]'),
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => { })
-        ]);
+            let captchaText = result.stdout.trim();
+            console.log("CAPTCHA read as:", captchaText);
 
-        const content = await page.content();
-        if (!content.includes("Captcha requerido") && !content.includes("La verificación de caracteres no es correcta")) {
-            console.log("\n✅ Resultado obtenido:\n");
-            const text = await page.evaluate(() => document.body.innerText);
-            console.log(text);
-            success = true;
-            break;
-        } else {
-            console.log("❌ CAPTCHA incorrecto o faltante. Reintentando...");
-            await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do");
+            try {
+                await page.waitForSelector('input[name="captchaConsulta"]', { timeout: 5000 });
+                await page.type('input[name="captchaConsulta"]', captchaText);
+            } catch (e) {
+                console.error("❌ CAPTCHA input not found. Skipping attempt.");
+                continue;
+            }
+
+            await Promise.all([
+                page.click("#btnConsultaMorosidad"),
+                page.waitForNavigation({ waitUntil: "networkidle2" }),
+            ]);
+
+            const content = await page.content();
+            if (!content.includes("La verificación de caracteres no es correcta")) {
+                success = true;
+                console.log("\n✅ CAPTCHA correct!");
+                const resultText = await page.evaluate(() => document.body.innerText);
+                console.log("\n--- Result ---\n");
+                console.log(resultText);
+            } else {
+                console.log("❌ CAPTCHA was incorrect. Retrying...");
+            }
         }
-    }
 
-    if (!success) {
-        console.log("❌ Falló el envío del formulario tras 3 intentos.");
-    }
+        if (!success) {
+            console.log("❌ Failed to submit the form after 3 attempts.");
+        }
 
-    await browser.close();
-})();
+        await browser.close();
+        rl.close();
+    });
+});
