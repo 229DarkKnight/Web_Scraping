@@ -1,88 +1,71 @@
-const puppeteer = require("puppeteer");
-const fs = require("fs");
-const readline = require("readline");
-const { spawnSync } = require("child_process");
+const puppeteer = require('puppeteer');
+const readline = require('readline');
+const fs = require('fs');
+const { execSync } = require('child_process');
 
 const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout,
+    output: process.stdout
 });
 
-const ask = (question) =>
-    new Promise((resolve) => rl.question(question, resolve));
+function ask(query) {
+    return new Promise(resolve => rl.question(query, resolve));
+}
+
+const ID_TYPES = [
+    "CÉDULA DE IDENTIDAD EN REGISTRO CIVIL",
+    "CÉDULA JURÍDICA",
+    "EXTRANJERO CON IDENTIFICACIÓN CCSS"
+];
 
 (async () => {
-    console.log("Seleccione el tipo de identificación:");
-    console.log("0 - CÉDULA DE IDENTIDAD EN REGISTRO CIVIL");
-    console.log("1 - CÉDULA JURÍDICA");
-    console.log("2 - EXTRANJERO CON IDENTIFICACIÓN CCSS");
-
-    const tipoId = await ask("Digite 0, 1 o 2 según el tipo de identificación: ");
+    const idTypeInput = await ask(`Seleccione el tipo de identificación:\n0 - ${ID_TYPES[0]}\n1 - ${ID_TYPES[1]}\n2 - ${ID_TYPES[2]}\nDigite 0, 1 o 2 según el tipo de identificación: `);
+    const idTypeIndex = parseInt(idTypeInput);
     const idNumber = await ask("Digite el número de identificación: ");
+    rl.close();
 
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
 
+    await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do");
+
+    const maxAttempts = 3;
     let success = false;
-    let attempts = 0;
 
-    while (!success && attempts < 3) {
-        attempts++;
-        console.log(`\n🔁 Intento ${attempts}...`);
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`\n🔁 Intento ${attempt}...`);
 
-        await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do", {
-            waitUntil: "networkidle2",
-        });
+        const idSelect = await page.waitForSelector('select[name="tipoIdentificacion"]');
+        await idSelect.select(`${idTypeIndex}`);
 
-        await page.select("#tipPatrono", tipoId);
-        await page.type("#numPatrono", idNumber);
+        await page.type('input[name="numeroIdentificacion"]', idNumber);
 
-        const captchaElement = await page.$("#imgCaptchaN");
-        await captchaElement.screenshot({ path: "captcha.png" });
+        // Captura del CAPTCHA
+        const captchaImage = await page.waitForSelector('#captchaImg');
+        const captchaPath = 'captcha.png';
+        await captchaImage.screenshot({ path: captchaPath });
 
         console.log("🧠 Procesando CAPTCHA...");
-        const result = spawnSync("python3", ["ocr_solver.py", "captcha.png"], {
-            encoding: "utf-8",
-            maxBuffer: 10 * 1024 * 1024,
-        });
+        const captchaText = execSync(`python3 ocr_solver.py ${captchaPath}`).toString().trim();
+        console.log(`CAPTCHA leído como: ${captchaText}`);
 
-        if (result.error) {
-            console.error("⚠️ Error ejecutando OCR:", result.error);
-            process.exit(1);
-        }
+        await page.type('input[name="captchaConsulta"]', captchaText);
+        await Promise.all([
+            page.click('input[type="submit"]'),
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => { })
+        ]);
 
-        let captchaText = result.stdout.trim();
-        console.log("CAPTCHA leído como:", captchaText);
-
-        try {
-            await page.waitForSelector('input[name="captchaConsulta"]', {
-                timeout: 5000,
-            });
-            await page.type('input[name="captchaConsulta"]', captchaText);
-        } catch (e) {
-            console.error("❌ No se encontró el campo del CAPTCHA. Saltando intento.");
-            continue;
-        }
-
-        await page.click("#btnConsultaMorosidad");
-
-        // Espera de 2 segundos para que cargue la respuesta
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        const resultText = await page.evaluate(() => document.body.innerText);
-
-        const hasCaptchaError = resultText.includes("Captcha requerido") ||
-            resultText.includes("verificación de caracteres no es correcta") ||
-            resultText.includes("Debe corregir el siguiente error");
-
-        if (hasCaptchaError) {
+        const content = await page.content();
+        if (!content.includes("Captcha requerido") && !content.includes("La verificación de caracteres no es correcta")) {
+            console.log("\n✅ Resultado obtenido:\n");
+            const text = await page.evaluate(() => document.body.innerText);
+            console.log(text);
+            success = true;
+            break;
+        } else {
             console.log("❌ CAPTCHA incorrecto o faltante. Reintentando...");
-            continue;
+            await page.goto("https://sfa.ccss.sa.cr/moroso/consultarMorosidad.do");
         }
-
-        console.log("\n✅ Resultado obtenido:\n");
-        console.log(resultText);
-        success = true;
     }
 
     if (!success) {
@@ -90,5 +73,4 @@ const ask = (question) =>
     }
 
     await browser.close();
-    rl.close();
 })();
