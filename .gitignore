@@ -1,0 +1,24 @@
+# Python virtual environment
+.venv/
+
+# VS Code dev container settings (optional, depending on use)
+.devcontainer/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables
+.env
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook checkpoints (if used)
+.ipynb_checkpoints/
+
+# Logs or temp files (optional)
+*.log
+*.tmp
