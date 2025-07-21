@@ -1,1 +1,7 @@
-requests
+langchain-openai>=0.1.7
+langchain-community>=0.0.21
+langchain-core>=0.1.53
+openai>=1.30.0
+pillow>=10.3.0
+python-dotenv>=1.0.1
+requests>=2.31.0

@@ -5,7 +5,7 @@
 node_modules/
 package-lock.json
 
-# VS Code dev container settings (optional, depending on use)
+# VS Code dev container
 .devcontainer/
 
 # Python cache
@@ -13,16 +13,21 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# Environment variables
+# Environment and secrets
 .env
+.env.*
 
-# OS-specific
-.DS_Store
-Thumbs.db
+# Captchas and temp files
+captcha.png
+captcha_raw.png
+captcha_cleaned.png
+solve_captcha.png
+*.tmp
+*.log
 
-# Jupyter Notebook checkpoints (if used)
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Logs or temp files (optional)
-*.log
-*.tmp
+# macOS / Windows system files
+.DS_Store
+Thumbs.db

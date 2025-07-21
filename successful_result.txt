@@ -1,0 +1,42 @@
+Consulta Morosidad Patronal
+Dirección de Cobros
+Cumplimiento Art. 74 Ley Constitutiva CCSS
+Inicio Reporte Patronos más Morosos Validar Documento Digital Buscar
+Búsqueda de Patrono por Identificación
+Tipo Identificación * 
+ 
+CEDULA DE IDENTIDAD EN REGISTRO CIVIL
+CEDULA JURIDICA
+EXTRANJERO CON IDENTIFICACION CCSS
+Número Identificación * 
+Verificación de caracteres: * 
+    *
+BUSCAR
+PATRONO / TI / AV MOROSO
+Consulta realizada a la fecha 21/07/2025
+Nombre	ALFREDO BERNARDO MARRERO VIQUEZ
+Lugar de Pago	CARTAGO
+Monto Adeudado	750,211.00
+Situación	Cobro Administrativo
+
+
+
+La deuda desplegada corresponde a rubros de la Caja y Ley de Protección al Trabajador, no incluye la deuda de Otras Instituciones (I.N.A., I.M.A.S, A.S.F.A. y Banco Popular)
+
+
+
+Generar Documento Digital
+Validar Documento Digital
+Pago Institucional Artículo 74
+
+
+
+Para conocer si tiene deudas pendientes con otras instituciones usar los siguiente enlaces:
+
+ 
+
+ 
+
+ 
+
+© 2025 DESARROLLADO POR LA SUBAREA DE SISTEMAS FINANCIEROS ADMINISTRATIVOS, CAJA COSTARRICENSE DE SEGURO SOCIAL VERSION 1.5.1.1 15/12/2021 TODOS LOS DERECHOS RESERVADOS
